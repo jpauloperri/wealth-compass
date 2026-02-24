@@ -1,1 +1,7 @@
 project_id = "oeewbuywmytohccbupfa"
+
+[functions.generate-diagnosis]
+verify_jwt = false
+
+[functions.transcribe-audio]
+verify_jwt = false

@@ -53,6 +53,8 @@ export interface DiagnosticState {
   audioBlob: Blob | null;
   currentStep: number;
   consentGiven: boolean;
+  diagnosisResult: any | null;
+  diagnosisError: string | null;
 }
 
 interface DiagnosticContextType {
@@ -63,6 +65,8 @@ interface DiagnosticContextType {
   setAudioBlob: (blob: Blob | null) => void;
   setCurrentStep: (step: number) => void;
   setConsentGiven: (v: boolean) => void;
+  setDiagnosisResult: (result: any | null) => void;
+  setDiagnosisError: (error: string | null) => void;
 }
 
 const DiagnosticContext = createContext<DiagnosticContextType | null>(null);
@@ -81,6 +85,8 @@ export const DiagnosticProvider = ({ children }: { children: ReactNode }) => {
     audioBlob: null,
     currentStep: 1,
     consentGiven: false,
+    diagnosisResult: null,
+    diagnosisError: null,
   });
 
   const updateQuestionnaire = (data: Partial<QuestionnaireData>) =>
@@ -90,10 +96,12 @@ export const DiagnosticProvider = ({ children }: { children: ReactNode }) => {
   const setAudioBlob = (blob: Blob | null) => setState((s) => ({ ...s, audioBlob: blob }));
   const setCurrentStep = (step: number) => setState((s) => ({ ...s, currentStep: step }));
   const setConsentGiven = (v: boolean) => setState((s) => ({ ...s, consentGiven: v }));
+  const setDiagnosisResult = (result: any | null) => setState((s) => ({ ...s, diagnosisResult: result }));
+  const setDiagnosisError = (error: string | null) => setState((s) => ({ ...s, diagnosisError: error }));
 
   return (
     <DiagnosticContext.Provider
-      value={{ state, updateQuestionnaire, setUploadedFiles, setPersonalNarrative, setAudioBlob, setCurrentStep, setConsentGiven }}
+      value={{ state, updateQuestionnaire, setUploadedFiles, setPersonalNarrative, setAudioBlob, setCurrentStep, setConsentGiven, setDiagnosisResult, setDiagnosisError }}
     >
       {children}
     </DiagnosticContext.Provider>

@@ -1,6 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Shield } from "lucide-react";
+import { useDiagnostic } from "@/contexts/DiagnosticContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const messages = [
   "Analisando seu perfil financeiro...",
@@ -15,8 +18,10 @@ const messages = [
 
 const Processing = () => {
   const navigate = useNavigate();
+  const { state, setDiagnosisResult, setDiagnosisError } = useDiagnostic();
   const [messageIdx, setMessageIdx] = useState(0);
   const [progress, setProgress] = useState(0);
+  const calledRef = useRef(false);
 
   useEffect(() => {
     const msgInterval = setInterval(() => {
@@ -24,23 +29,81 @@ const Processing = () => {
     }, 3000);
 
     const progInterval = setInterval(() => {
-      setProgress((p) => {
-        if (p >= 100) return 100;
-        return p + 1;
-      });
-    }, 80);
-
-    // Simulate completion
-    const timeout = setTimeout(() => {
-      navigate("/resultado");
-    }, 8000);
+      setProgress((p) => (p >= 95 ? 95 : p + 0.5));
+    }, 200);
 
     return () => {
       clearInterval(msgInterval);
       clearInterval(progInterval);
-      clearTimeout(timeout);
     };
-  }, [navigate]);
+  }, []);
+
+  useEffect(() => {
+    if (calledRef.current) return;
+    calledRef.current = true;
+
+    const runDiagnosis = async () => {
+      try {
+        // Step 1: Transcribe audio if available
+        let narrative = state.personalNarrative || "";
+
+        if (state.audioBlob && !narrative) {
+          try {
+            const formData = new FormData();
+            formData.append("audio", state.audioBlob, "audio.webm");
+
+            const transcribeResp = await supabase.functions.invoke("transcribe-audio", {
+              body: formData,
+            });
+
+            if (transcribeResp.error) {
+              console.error("Transcription error:", transcribeResp.error);
+              toast.warning("Não foi possível transcrever o áudio. Continuando sem relato pessoal.");
+            } else if (transcribeResp.data?.transcription) {
+              narrative = transcribeResp.data.transcription;
+            }
+          } catch (e) {
+            console.error("Transcription failed:", e);
+            toast.warning("Falha na transcrição do áudio.");
+          }
+        }
+
+        // Step 2: Generate diagnosis
+        const { data, error } = await supabase.functions.invoke("generate-diagnosis", {
+          body: {
+            questionnaire: state.questionnaire,
+            narrative: narrative || null,
+            extractsDescription: state.uploadedFiles.length > 0
+              ? `Cliente enviou ${state.uploadedFiles.length} arquivo(s): ${state.uploadedFiles.map(f => f.name).join(", ")}. (Análise de conteúdo dos extratos será implementada na próxima fase com integração Google Drive.)`
+              : null,
+          },
+        });
+
+        if (error) {
+          throw new Error(error.message || "Erro ao gerar diagnóstico");
+        }
+
+        if (data?.error) {
+          throw new Error(data.error);
+        }
+
+        if (data?.diagnosis) {
+          setDiagnosisResult(data.diagnosis);
+          setProgress(100);
+          setTimeout(() => navigate("/resultado"), 500);
+        } else {
+          throw new Error("Resposta inesperada do servidor");
+        }
+      } catch (e: any) {
+        console.error("Diagnosis failed:", e);
+        setDiagnosisError(e.message || "Erro desconhecido");
+        toast.error("Erro ao gerar diagnóstico: " + (e.message || "Tente novamente"));
+        setTimeout(() => navigate("/relato"), 3000);
+      }
+    };
+
+    runDiagnosis();
+  }, []);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
