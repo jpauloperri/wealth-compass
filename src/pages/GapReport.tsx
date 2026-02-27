@@ -11,12 +11,17 @@ import {
   Target,
   Shield,
   ArrowRight,
+  Download,
+  Share2,
+  RefreshCw,
 } from "lucide-react";
+import { useState } from "react";
 import type { GapReport } from "@/types/gap-report";
 
 const GapReportComponent = () => {
   const navigate = useNavigate();
   const { state } = useDiagnostic();
+  const [exporting, setExporting] = useState(false);
 
   const report = state.diagnosisResult as GapReport | null;
   const clientName = state.questionnaire.nomeCompleto || "Cliente";
@@ -258,17 +263,72 @@ const GapReportComponent = () => {
         <div className="glass-card p-8 border-2 border-primary/50 mb-8">
           <p className="text-muted-foreground mb-6">{report.ctaFinal}</p>
 
-          <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6">
-            <CheckCircle2 className="w-5 h-5 mr-2" />
-            Agendar Conversa com Consultor
-            <ArrowRight className="w-5 h-5 ml-2" />
-          </Button>
+          <div className="flex flex-col gap-3">
+            <Button 
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-lg py-6"
+              onClick={() => {
+                window.open(
+                  `https://wa.me/?text=${encodeURIComponent(
+                    `Olá! Gostaria de agendar uma conversa sobre meu GAP REPORT. Cliente: ${clientName}`
+                  )}`,
+                  "_blank"
+                );
+              }}
+            >
+              <CheckCircle2 className="w-5 h-5 mr-2" />
+              Agendar Conversa com Consultor
+              <ArrowRight className="w-5 h-5 ml-2" />
+            </Button>
+
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                className="flex-1 py-2"
+                onClick={async () => {
+                  setExporting(true);
+                  try {
+                    const { exportarGAPReportPDF } = await import("@/services/exportPDF");
+                    exportarGAPReportPDF(report);
+                  } catch (e) {
+                    alert("❌ Erro ao exportar PDF");
+                  } finally {
+                    setExporting(false);
+                  }
+                }}
+                disabled={exporting}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {exporting ? "Gerando..." : "Exportar PDF"}
+              </Button>
+
+              <Button 
+                variant="outline"
+                className="flex-1 py-2"
+                onClick={async () => {
+                  try {
+                    const { copiarParaClipboard } = await import("@/services/exportPDF");
+                    await copiarParaClipboard(report);
+                    alert("✅ GAP REPORT copiado!");
+                  } catch (e) {
+                    alert("❌ Erro ao copiar");
+                  }
+                }}
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                Copiar
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Voltar */}
         <div className="flex justify-center mb-10">
-          <Button variant="outline" onClick={() => navigate("/")}>
-            Voltar ao Início
+          <Button 
+            variant="outline"
+            onClick={() => navigate("/")}
+          >
+            <RefreshCw className="w-4 h-4 mr-2" />
+            Refazer Diagnóstico
           </Button>
         </div>
       </div>
